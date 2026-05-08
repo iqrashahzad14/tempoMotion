@@ -136,7 +136,7 @@ for s = 1:numel(subjects)
     cfg = [];
     
     % Define threshold in microvolts
-    cfg.artfctdef.threshold.channel = 'EEG';
+    cfg.artfctdef.threshold.channel = {'A*','B*','C*','D*'}; %'EEG';
     cfg.artfctdef.threshold.min     = -100;   % lower limit, µV
     cfg.artfctdef.threshold.max     = 100;    % upper limit, µV
     
@@ -186,7 +186,7 @@ for s = 1:numel(subjects)
     cfg = [];
     cfg.reref      = 'yes';
     cfg.refchannel = 'all';   % average reference
-    cfg.channel    = 'EEG';
+    cfg.channel    = {'A*','B*','C*','D*'}; %'EEG';
     
     data_ref = ft_preprocessing(cfg, data_clean);
     
@@ -202,5 +202,3 @@ for s = 1:numel(subjects)
          'data_ref', '-v7.3');
 
 end
-
-
