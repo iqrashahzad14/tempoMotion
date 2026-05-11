@@ -1,4 +1,5 @@
 %% Preprocessing 
+% There is no need to save each file after a preprocessing step. You will not need it.
 
 clear; 
 
@@ -32,21 +33,21 @@ cfg.channel = {'A*','B*','C*','D*'}; %'all';
 
 % high-pass:  stable FIR,  default IIR
 cfg.hpfilter   = 'yes';
-cfg.hpfreq     = 0.5;
-cfg.hpfilttype = 'firws';
-cfg.hpfiltdir  = 'onepass-zerophase';
+cfg.hpfreq     = 0.1; %0.5 can cause latency discrepancy
+cfg.hpfilttype = 'but'; %butterworth better
+% cfg.hpfiltdir  = 'onepass-zerophase'; %two pass required, it is default
 
 % low-pass
 cfg.lpfilter   = 'yes';
-cfg.lpfreq     = 40;
-cfg.lpfilttype = 'firws';
-cfg.lpfiltdir  = 'onepass-zerophase';
+cfg.lpfreq     = 45;
+cfg.lpfilttype = 'but';
+% cfg.lpfiltdir  = 'onepass-zerophase';
 
-% notch / band-stop
-cfg.bsfilter   = 'yes';
-cfg.bsfreq     = [49 51];
-cfg.bsfilttype = 'firws';
-cfg.bsfiltdir  = 'onepass-zerophase';
+% notch / band-stop (we don't need it if low pass is 45)
+%cfg.bsfilter   = 'yes';
+%cfg.bsfreq     = [49 51];
+%cfg.bsfilttype = 'firws';
+%cfg.bsfiltdir  = 'onepass-zerophase';
 
 data_filt = ft_preprocessing(cfg);
 
@@ -54,6 +55,7 @@ data_filt = ft_preprocessing(cfg);
 % save('sub-002_filtered.mat', 'data_filt', '-v7.3');
 
 %% 5. Epoching
+% The following code does not remove the target triggers, it includes them.
 
 % Inspect events
 event = ft_read_event(dataset);
@@ -96,6 +98,7 @@ data_epoch = ft_redefinetrial(cfg, data_filt);
 
 %% save 
 % save('sub-002_epoched.mat',   'data_epoch',  '-v7.3');
+% CHECK OUTPUT BEFORE NEXT STEP
 
 %% 6. Baseline correction
 
@@ -103,7 +106,7 @@ data_epoch = ft_redefinetrial(cfg, data_filt);
 
 cfg = [];
 cfg.demean = 'yes';
-cfg.baselinewindow = [-0.5 0];
+cfg.baselinewindow = [-inf 0];
 
 data_base = ft_preprocessing(cfg, data_epoch);
 
@@ -113,7 +116,7 @@ data_base = ft_preprocessing(cfg, data_epoch);
 %% 7. Resampling
 
 cfg = [];
-cfg.resamplefs = 500;   % target sampling rate in Hz
+cfg.resamplefs = 256;   % target sampling rate in Hz
 cfg.detrend    = 'no';
 
 data_resamp = ft_resampledata(cfg, data_base);
@@ -133,8 +136,8 @@ cfg = [];
 
 % Define threshold in microvolts
 cfg.artfctdef.threshold.channel = 'EEG';
-cfg.artfctdef.threshold.min     = -100;   % lower limit, µV
-cfg.artfctdef.threshold.max     = 100;    % upper limit, µV
+cfg.artfctdef.threshold.min     = -200;   % lower limit, µV
+cfg.artfctdef.threshold.max     = 200;    % upper limit, µV
 
 [cfg, artifact_threshold] = ft_artifact_threshold(cfg, data_resamp);
 
@@ -201,3 +204,8 @@ data_ref = ft_preprocessing(cfg, data_clean);
 
 %% Save final preprocessed EEG data
 save('sub-002_preprocessed.mat', 'data_ref', '-v7.3');
+
+%% visualize mean of all trials
+tl = ft_timelockanalysis([],data_ref);
+figure;
+plot(tl.time,tl.avg');
