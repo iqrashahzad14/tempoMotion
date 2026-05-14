@@ -16,15 +16,12 @@ outDir = fullfile(projectDir, 'outputs', 'preprocess');
 subjects = {'sub-001','sub-002','sub-003'};
 
 %%
-
 for s = 1:numel(subjects)
 
     subDir = subjects{s};
 
-    fprintf('\n=============================\n');
     fprintf('Processing %s\n', subDir);
-    fprintf('=============================\n');
-
+    
     dataset = fullfile(rawDir, subDir, [erase(subDir,'-') '.bdf']);
 
     subOutDir = fullfile(outDir, subDir);
@@ -44,25 +41,18 @@ for s = 1:numel(subjects)
     cfg.dataset = dataset;
     
     % Select channels 
-    cfg.channel = {'A*','B*','C*','D*'}; %'all';
+    cfg.channel = 'all'; %{'A*','B*','C*','D*'}; %'all';
     
     % high-pass:  stable FIR,  default IIR
     cfg.hpfilter   = 'yes';
-    cfg.hpfreq     = 0.5;
-    cfg.hpfilttype = 'firws';
-    cfg.hpfiltdir  = 'onepass-zerophase';
+    cfg.hpfreq     = 0.1; % 0.5 can cause latency discrepenacy
+    cfg.hpfilttype = 'but'; % butterworth
+    % cfg.hpfiltdir  = 'two-pass'- default 'onepass-zerophase';
     
     % low-pass
     cfg.lpfilter   = 'yes';
-    cfg.lpfreq     = 40;
-    cfg.lpfilttype = 'firws';
-    cfg.lpfiltdir  = 'onepass-zerophase';
-    
-    % notch / band-stop
-    cfg.bsfilter   = 'yes';
-    cfg.bsfreq     = [49 51];
-    cfg.bsfilttype = 'firws';
-    cfg.bsfiltdir  = 'onepass-zerophase';
+    cfg.lpfreq     = 45;
+    cfg.lpfilttype = 'but'; % butterworth
     
     data_filt = ft_preprocessing(cfg);
     
@@ -74,27 +64,16 @@ for s = 1:numel(subjects)
     disp(unique(event_values)');
     
     % Stimulus-locked epochs only
-    % visual_trigs = [65291 65292 65293 65294];   % 11 12 13 14
-    % tac_up_trigs = [65301 65302 65303 65304];   % 21 22 23 24
-    % tac_down_trigs = [65311 65312 65313 65314]; % 31 32 33 34
-    % stim_trigs = [visual_trigs tac_up_trigs tac_down_trigs];
-    
-    % Stimulus-locked and target epochs 
-    visual_trigs = [65291 65292 65293 65294 65295];   % 11 12 13 14 15
-    tac_up_trigs = [65301 65302 65303 65304 65305];   % 21 22 23 24 25
-    tac_down_trigs = [65311 65312 65313 65314 65315]; % 31 32 33 34 35
-    stim_target_trigs = [visual_trigs tac_up_trigs tac_down_trigs];
-    
-    % stimulus, target and response markers epochs
-    % all_trigs = [65291 65292 65293 65294 65295 65296 ...
-    %              65301 65302 65303 65304 65305 65306 ...
-    %              65311 65312 65313 65314 65315 65316];
+    visual_trigs = [65291 65292 65293 65294];   % 11 12 13 14
+    tac_up_trigs = [65301 65302 65303 65304];   % 21 22 23 24
+    tac_down_trigs = [65311 65312 65313 65314]; % 31 32 33 34
+    stim_trigs = [visual_trigs tac_up_trigs tac_down_trigs];
     
     cfg = [];
     cfg.dataset = dataset;
     
     cfg.trialdef.eventtype  = 'STATUS'; 
-    cfg.trialdef.eventvalue = stim_target_trigs;
+    cfg.trialdef.eventvalue = stim_trigs;
     
     cfg.trialdef.prestim    = 0.5;  % 500 ms before trigger
     cfg.trialdef.poststim   = 2.0;  % 2000 ms after trigger
@@ -113,21 +92,17 @@ for s = 1:numel(subjects)
     
     cfg = [];
     cfg.demean = 'yes';
-    cfg.baselinewindow = [-0.5 0];
+    cfg.baselinewindow = [-inf 0];
     
     data_base = ft_preprocessing(cfg, data_epoch);
     
     %% 7. Resampling
     
     cfg = [];
-    cfg.resamplefs = 500;   % target sampling rate in Hz
+    cfg.resamplefs = 256;   % target sampling rate in Hz
     cfg.detrend    = 'no';
     
     data_resamp = ft_resampledata(cfg, data_base);
-    
-    % Check sampling rate before/after:
-    disp(data_base.fsample)
-    disp(data_resamp.fsample)
     
     %% 8. Artifact rejection: 
     
@@ -136,9 +111,9 @@ for s = 1:numel(subjects)
     cfg = [];
     
     % Define threshold in microvolts
-    cfg.artfctdef.threshold.channel = {'A*','B*','C*','D*'}; %'EEG';
-    cfg.artfctdef.threshold.min     = -100;   % lower limit, µV
-    cfg.artfctdef.threshold.max     = 100;    % upper limit, µV
+    cfg.artfctdef.threshold.channel = 'EEG';
+    cfg.artfctdef.threshold.min     = -200;   % lower limit, µV
+    cfg.artfctdef.threshold.max     = 200;    % upper limit, µV
     
     [cfg, artifact_threshold] = ft_artifact_threshold(cfg, data_resamp);
     
@@ -180,13 +155,13 @@ for s = 1:numel(subjects)
     % 
     % cfg.artfctdef.reject = 'complete';
     % data_clean_zvalue = ft_rejectartifact(cfg, data_resamp);
-
+    
     %% 9. Re-reference to average of all EEG channels
     
     cfg = [];
     cfg.reref      = 'yes';
     cfg.refchannel = 'all';   % average reference
-    cfg.channel    = {'A*','B*','C*','D*'}; %'EEG';
+    cfg.channel    = 'EEG';
     
     data_ref = ft_preprocessing(cfg, data_clean);
     
@@ -196,9 +171,10 @@ for s = 1:numel(subjects)
     % cfg.refchannel = {'Cz'};
     % 
     % data_ref = ft_preprocessing(cfg, data_clean);
-
+    
     %% Save final preprocessed EEG data
-        save(fullfile(subOutDir, [subDir '_preprocessed.mat']), ...
-         'data_ref', '-v7.3');
+    % save('sub-002_preprocessed.mat', 'data_ref', '-v7.3');
+    save(fullfile(subOutDir, [subDir '_preprocessed.mat']), ...
+             'data_ref', '-v7.3');
 
 end

@@ -8,13 +8,23 @@ ft_defaults;
 
 %% 2. Define dataset and paths
 
-rawDir ='/Users/iqrashahzad/Files/eeg/tempoMotion/inputs/raw';
+projectDir = '/Users/iqrashahzad/Files/eeg/tempoMotion';
 
-subjects = {'sub-001','sub-002','sub-003'};
+rawDir = fullfile(projectDir, 'inputs', 'raw');
+outDir = fullfile(projectDir, 'outputs', 'preprocess');
 
-subDir = 'sub-002';
+% subjects = {'sub-001','sub-002','sub-003'};
 
-dataset = fullfile(rawDir, subDir, 'sub002.bdf');
+% select subject
+subDir = 'sub-001';
+
+dataset = fullfile(rawDir, subDir, [erase(subDir,'-') '.bdf']);
+
+subOutDir = fullfile(outDir, subDir);
+if ~exist(subOutDir, 'dir')
+    mkdir(subOutDir);
+end
+
 
 %% 3. Inspect header and events
 hdr = ft_read_header(dataset);
@@ -32,26 +42,16 @@ cfg.channel = {'A*','B*','C*','D*'}; %'all';
 
 % high-pass:  stable FIR,  default IIR
 cfg.hpfilter   = 'yes';
-cfg.hpfreq     = 0.5;
-cfg.hpfilttype = 'firws';
-cfg.hpfiltdir  = 'onepass-zerophase';
+cfg.hpfreq     = 0.1; % 0.5 can cause latency discrepenacy
+cfg.hpfilttype = 'but'; % butterworth
+% cfg.hpfiltdir  = 'two-pass'- default 'onepass-zerophase';
 
 % low-pass
 cfg.lpfilter   = 'yes';
-cfg.lpfreq     = 40;
-cfg.lpfilttype = 'firws';
-cfg.lpfiltdir  = 'onepass-zerophase';
-
-% notch / band-stop
-cfg.bsfilter   = 'yes';
-cfg.bsfreq     = [49 51];
-cfg.bsfilttype = 'firws';
-cfg.bsfiltdir  = 'onepass-zerophase';
+cfg.lpfreq     = 45;
+cfg.lpfilttype = 'but'; % butterworth
 
 data_filt = ft_preprocessing(cfg);
-
-%% Save
-% save('sub-002_filtered.mat', 'data_filt', '-v7.3');
 
 %% 5. Epoching
 
@@ -61,16 +61,16 @@ event_values = [event.value];
 disp(unique(event_values)');
 
 % Stimulus-locked epochs only
-% visual_trigs = [65291 65292 65293 65294];   % 11 12 13 14
-% tac_up_trigs = [65301 65302 65303 65304];   % 21 22 23 24
-% tac_down_trigs = [65311 65312 65313 65314]; % 31 32 33 34
-% stim_trigs = [visual_trigs tac_up_trigs tac_down_trigs];
+visual_trigs = [65291 65292 65293 65294];   % 11 12 13 14
+tac_up_trigs = [65301 65302 65303 65304];   % 21 22 23 24
+tac_down_trigs = [65311 65312 65313 65314]; % 31 32 33 34
+stim_trigs = [visual_trigs tac_up_trigs tac_down_trigs];
 
-% Stimulus-locked and target epochs 
-visual_trigs = [65291 65292 65293 65294 65295];   % 11 12 13 14 15
-tac_up_trigs = [65301 65302 65303 65304 65305];   % 21 22 23 24 25
-tac_down_trigs = [65311 65312 65313 65314 65315]; % 31 32 33 34 35
-stim_target_trigs = [visual_trigs tac_up_trigs tac_down_trigs];
+% % Stimulus-locked and target epochs 
+% visual_trigs = [65291 65292 65293 65294 65295];   % 11 12 13 14 15
+% tac_up_trigs = [65301 65302 65303 65304 65305];   % 21 22 23 24 25
+% tac_down_trigs = [65311 65312 65313 65314 65315]; % 31 32 33 34 35
+% stim_target_trigs = [visual_trigs tac_up_trigs tac_down_trigs];
 
 % stimulus, target and response markers epochs
 % all_trigs = [65291 65292 65293 65294 65295 65296 ...
@@ -81,7 +81,7 @@ cfg = [];
 cfg.dataset = dataset;
 
 cfg.trialdef.eventtype  = 'STATUS'; 
-cfg.trialdef.eventvalue = stim_target_trigs;
+cfg.trialdef.eventvalue = stim_trigs;
 
 cfg.trialdef.prestim    = 0.5;  % 500 ms before trigger
 cfg.trialdef.poststim   = 2.0;  % 2000 ms after trigger
@@ -94,36 +94,23 @@ cfg.trl(:,4) = cfg.trl(:,4) - 65280;
 % Apply trial definition to filtered continuous data
 data_epoch = ft_redefinetrial(cfg, data_filt);
 
-%% save 
-% save('sub-002_epoched.mat',   'data_epoch',  '-v7.3');
-
 %% 6. Baseline correction
 
 % Baseline: 500 ms before stimulus onset 
 
 cfg = [];
 cfg.demean = 'yes';
-cfg.baselinewindow = [-0.5 0];
+cfg.baselinewindow = [-inf 0];
 
 data_base = ft_preprocessing(cfg, data_epoch);
-
-%% Save
-% save('sub-002_baselineCorrected.mat',   'data_epoch',  '-v7.3');
 
 %% 7. Resampling
 
 cfg = [];
-cfg.resamplefs = 500;   % target sampling rate in Hz
+cfg.resamplefs = 256;   % target sampling rate in Hz
 cfg.detrend    = 'no';
 
 data_resamp = ft_resampledata(cfg, data_base);
-
-% Check sampling rate before/after:
-disp(data_base.fsample)
-disp(data_resamp.fsample)
-
-%% Save
-% save('sub-002_resampled.mat',   'data_epoch',  '-v7.3');
 
 %% 8. Artifact rejection: 
 
@@ -133,8 +120,8 @@ cfg = [];
 
 % Define threshold in microvolts
 cfg.artfctdef.threshold.channel = 'EEG';
-cfg.artfctdef.threshold.min     = -100;   % lower limit, µV
-cfg.artfctdef.threshold.max     = 100;    % upper limit, µV
+cfg.artfctdef.threshold.min     = -200;   % lower limit, µV
+cfg.artfctdef.threshold.max     = 200;    % upper limit, µV
 
 [cfg, artifact_threshold] = ft_artifact_threshold(cfg, data_resamp);
 
@@ -177,9 +164,6 @@ data_clean = ft_rejectartifact(cfg, data_resamp);
 % cfg.artfctdef.reject = 'complete';
 % data_clean_zvalue = ft_rejectartifact(cfg, data_resamp);
 
-%% save
-% save('sub-002_clean.mat', 'data_clean', '-v7.3');
-
 %% 9. Re-reference to average of all EEG channels
 
 cfg = [];
@@ -196,8 +180,12 @@ data_ref = ft_preprocessing(cfg, data_clean);
 % 
 % data_ref = ft_preprocessing(cfg, data_clean);
 
-%% Save 
-% save('sub-002_rereferenced.mat', 'data_ref', '-v7.3');
-
 %% Save final preprocessed EEG data
-save('sub-002_preprocessed.mat', 'data_ref', '-v7.3');
+% save('sub-002_preprocessed.mat', 'data_ref', '-v7.3');
+save(fullfile(subOutDir, [subDir '_preprocessed.mat']), ...
+         'data_ref', '-v7.3');
+
+%% visualize mean of all trialstl = ft_timelockanalysis([],data_ref);figure;plot(tl.time,tl.avg');
+tl = ft_timelockanalysis([],data_ref);
+figure;
+plot(tl.time,tl.avg');
