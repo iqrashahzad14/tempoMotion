@@ -15,17 +15,17 @@ outDir = fullfile(projectDir, 'outputs', 'preprocess');
 
 subjects = {'sub-001','sub-002','sub-003'};
 
-rawfile = fullfile(rawDir, subDir, [erase(subDir,'-') '.bdf']);
 
-subOutDir = fullfile(outDir, subDir);
-if ~exist(subOutDir, 'dir')
-    mkdir(subOutDir);
-end
 
 %%
 for s = 1:numel(subjects)
 
     subDir = subjects{s};
+    rawfile = fullfile(rawDir, subDir, [erase(subDir,'-') '.bdf']);
+    subOutDir = fullfile(outDir, subDir);
+    if ~exist(subOutDir, 'dir')
+        mkdir(subOutDir);
+    end
 
     fprintf('Processing %s\n', subDir);
     
@@ -118,7 +118,7 @@ for s = 1:numel(subjects)
     %% ica
 
     if strcmp(subDir, 'sub-003')
-        
+
     cfg = [];
     cfg.channel = {'A*','B*','C*','D*'};   % BioSemi 128 scalp channels
     data_ica_in = ft_selectdata(cfg, data_resamp);
