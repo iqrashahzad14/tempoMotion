@@ -53,4 +53,4 @@
 % 65313 -> 33 tac_down pinky_to_thumb
 % 65314 -> 34 tac_down thumb_to_pinky
 % 65315 -> 35 tac_down target
-% 65316 -> 36 resp
+% 65316 -> 36 tac_down resp
