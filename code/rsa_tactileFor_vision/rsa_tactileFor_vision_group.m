@@ -1,9 +1,10 @@
-%% RSA: cross-modal alignment (vision + tactile FoR) - group level
+%% RSA: 8-condition cross-modal RDM - group level (mean +/- SEM)
 %
-% Loads each subject's saved RDMs/alignment-index time-courses (see
-% rsa_tactileFor_vision_subject.m), averages across the 6 subjects, and
-% plots the group mean +/- SEM alignment index (plus within-modality
-% distances for context) and group mean RDM heatmaps per framing.
+% Loads each subject's saved 8x8 time-resolved RDM (see
+% rsa_tactileFor_vision_subject.m), averages the RDM and the overall
+% distinctiveness time-courses (all-cells and clean-cells-only) across
+% the 6 subjects, and plots the group-mean baseline/post-stim RDMs plus
+% the distinctiveness time-course with SEM.
 %
 % Requires outputs/rsa_tactileFor_vision/<sub>/<sub>_rsa_tactileFor_vision.mat
 % for every subject (see rsa_tactileFor_vision_subject.m).
@@ -19,90 +20,86 @@ groupOutDir = fullfile(rsaDir, 'group');
 subjects = {'sub-001', 'sub-002', 'sub-003', 'sub-004', 'sub-005', 'sub-006'};
 nSub = numel(subjects);
 
-%% Load all subjects
+%% Load all subjects' per-subject results
 allResults = cell(1, nSub);
 for s = 1:nSub
     loaded = load(fullfile(rsaDir, subjects{s}, [subjects{s} '_rsa_tactileFor_vision.mat']), 'results');
     allResults{s} = loaded.results;
 end
 
-targetNames = fieldnames(allResults{1});
-
 if ~exist(groupOutDir, 'dir')
     mkdir(groupOutDir);
 end
 
-groupRsa = struct();
+condLabels    = allResults{1}.condLabels;
+cleanPairMask = allResults{1}.cleanPairMask;
+timeVec = allResults{1}.time;
+nTime = numel(timeVec);
+C = numel(condLabels);
 
-f = figure('Visible', 'off');
-for ti = 1:numel(targetNames)
-    tn = targetNames{ti};
-    timeVec = allResults{1}.(tn).time;
-    nTime = numel(timeVec);
-    condLabels = allResults{1}.(tn).condLabels;
-
-    alignBySubj = nan(nSub, nTime);
-    withinVisBySubj = nan(nSub, nTime);
-    withinTacBySubj = nan(nSub, nTime);
-    baselineStack = zeros(nSub, 4, 4);
-    postStack     = zeros(nSub, 4, 4);
-    for s = 1:nSub
-        alignBySubj(s, :)     = allResults{s}.(tn).alignIndex;
-        withinVisBySubj(s, :) = allResults{s}.(tn).withinVis;
-        withinTacBySubj(s, :) = allResults{s}.(tn).withinTac;
-        baselineStack(s, :, :) = allResults{s}.(tn).rdmBaseline;
-        postStack(s, :, :)     = allResults{s}.(tn).rdmPostStim;
-    end
-
-    alignMean = mean(alignBySubj, 1);
-    alignSEM  = std(alignBySubj, 0, 1) / sqrt(nSub);
-    withinVisMean = mean(withinVisBySubj, 1);
-    withinTacMean = mean(withinTacBySubj, 1);
-    rdmBaselineMean = squeeze(mean(baselineStack, 1));
-    rdmPostMean     = squeeze(mean(postStack, 1));
-
-    groupRsa.(tn).time = timeVec;
-    groupRsa.(tn).alignMean = alignMean;
-    groupRsa.(tn).alignSEM  = alignSEM;
-    groupRsa.(tn).alignBySubject = alignBySubj;
-    groupRsa.(tn).withinVisMean = withinVisMean;
-    groupRsa.(tn).withinTacMean = withinTacMean;
-    groupRsa.(tn).rdmBaseline = rdmBaselineMean;
-    groupRsa.(tn).rdmPostStim = rdmPostMean;
-    groupRsa.(tn).condLabels = condLabels;
-
-    subplot(numel(targetNames), 3, (ti-1)*3 + 1);
-    hold on;
-    fill([timeVec, fliplr(timeVec)], [alignMean + alignSEM, fliplr(alignMean - alignSEM)], ...
-        [0.9 0.4 0.4], 'FaceAlpha', 0.3, 'EdgeColor', 'none');
-    plot(timeVec, alignMean, 'LineWidth', 1.5, 'Color', [0.8 0.1 0.1]);
-    plot(timeVec, withinVisMean, '--', 'LineWidth', 1, 'Color', [0.2 0.5 0.9]);
-    plot(timeVec, withinTacMean, '--', 'LineWidth', 1, 'Color', [0.3 0.7 0.3]);
-    yline(0, 'k--'); xline(0, 'k-');
-    hold off;
-    xlabel('Time (s)'); ylabel('cv-distance');
-    legend({'', 'alignment index (\pm SEM)', 'within-vis dist', 'within-tac dist'}, 'Location', 'best', 'FontSize', 6);
-    title(sprintf('%s - alignment index (N=%d)', tn, nSub), 'Interpreter', 'none');
-
-    subplot(numel(targetNames), 3, (ti-1)*3 + 2);
-    imagesc(rdmBaselineMean);
-    axis square; colorbar;
-    set(gca, 'XTick', 1:4, 'XTickLabel', condLabels, 'YTick', 1:4, 'YTickLabel', condLabels, ...
-        'TickLabelInterpreter', 'none', 'FontSize', 6);
-    title([tn ' - RDM (baseline)'], 'Interpreter', 'none');
-
-    subplot(numel(targetNames), 3, (ti-1)*3 + 3);
-    imagesc(rdmPostMean);
-    axis square; colorbar;
-    set(gca, 'XTick', 1:4, 'XTickLabel', condLabels, 'YTick', 1:4, 'YTickLabel', condLabels, ...
-        'TickLabelInterpreter', 'none', 'FontSize', 6);
-    title([tn ' - RDM (post-stim)'], 'Interpreter', 'none');
+%% Stack across subjects
+rdmStack = zeros(nSub, C, C, nTime);
+offDiagAllStack   = nan(nSub, nTime);
+offDiagCleanStack = nan(nSub, nTime);
+rdmBaselineStack = zeros(nSub, C, C);
+rdmPostStimStack = zeros(nSub, C, C);
+for s = 1:nSub
+    rdmStack(s, :, :, :) = allResults{s}.rdm;
+    offDiagAllStack(s, :)   = allResults{s}.meanOffDiagAll;
+    offDiagCleanStack(s, :) = allResults{s}.meanOffDiagClean;
+    rdmBaselineStack(s, :, :) = allResults{s}.rdmBaseline;
+    rdmPostStimStack(s, :, :) = allResults{s}.rdmPostStim;
 end
 
-sgtitle('Group - cross-modal RSA (vision + tactile FoR)', 'Interpreter', 'none');
-set(f, 'Position', [0 0 1300 700]);
+groupRsa = struct();
+groupRsa.condLabels    = condLabels;
+groupRsa.cleanPairMask = cleanPairMask;
+groupRsa.time = timeVec;
+groupRsa.rdmMean = squeeze(mean(rdmStack, 1));
+groupRsa.offDiagAllMean   = mean(offDiagAllStack, 1);
+groupRsa.offDiagAllSEM    = std(offDiagAllStack, 0, 1) / sqrt(nSub);
+groupRsa.offDiagCleanMean = mean(offDiagCleanStack, 1);
+groupRsa.offDiagCleanSEM  = std(offDiagCleanStack, 0, 1) / sqrt(nSub);
+groupRsa.rdmBaselineMean = squeeze(mean(rdmBaselineStack, 1));
+groupRsa.rdmPostStimMean = squeeze(mean(rdmPostStimStack, 1));
+
+save(fullfile(groupOutDir, 'group_rsa_tactileFor_vision.mat'), 'groupRsa', '-v7.3');
+
+%% Plot
+f = figure('Visible', 'off');
+
+subplot(1, 3, 1);
+hold on;
+fill([timeVec, fliplr(timeVec)], [groupRsa.offDiagAllMean + groupRsa.offDiagAllSEM, fliplr(groupRsa.offDiagAllMean - groupRsa.offDiagAllSEM)], ...
+    [0.6 0.6 0.6], 'FaceAlpha', 0.25, 'EdgeColor', 'none');
+plot(timeVec, groupRsa.offDiagAllMean, 'LineWidth', 1.5, 'Color', [0.5 0.5 0.5]);
+fill([timeVec, fliplr(timeVec)], [groupRsa.offDiagCleanMean + groupRsa.offDiagCleanSEM, fliplr(groupRsa.offDiagCleanMean - groupRsa.offDiagCleanSEM)], ...
+    [0.9 0.4 0.4], 'FaceAlpha', 0.25, 'EdgeColor', 'none');
+plot(timeVec, groupRsa.offDiagCleanMean, 'LineWidth', 1.5, 'Color', [0.8 0.1 0.1]);
+yline(0, 'k--'); xline(0, 'k-');
+hold off;
+xlabel('Time (s)'); ylabel('Mean cv-distance');
+legend({'', 'all cells', '', 'clean cells only'}, 'Location', 'best', 'FontSize', 7);
+title(sprintf('overall distinctiveness (N=%d)', nSub));
+grid on;
+
+subplot(1, 3, 2);
+imagesc(groupRsa.rdmBaselineMean);
+axis square; colorbar;
+set(gca, 'XTick', 1:C, 'XTickLabel', condLabels, 'YTick', 1:C, 'YTickLabel', condLabels, ...
+    'TickLabelInterpreter', 'none', 'FontSize', 6);
+title(sprintf('RDM (baseline, N=%d)', nSub));
+
+subplot(1, 3, 3);
+imagesc(groupRsa.rdmPostStimMean);
+axis square; colorbar;
+set(gca, 'XTick', 1:C, 'XTickLabel', condLabels, 'YTick', 1:C, 'YTickLabel', condLabels, ...
+    'TickLabelInterpreter', 'none', 'FontSize', 6);
+title(sprintf('RDM (post-stim, N=%d)', nSub));
+
+sgtitle('Group - 8-condition cross-modal RSA', 'Interpreter', 'none');
+set(f, 'Position', [0 0 1500 500]);
 saveas(f, fullfile(groupOutDir, 'group_rsa_tactileFor_vision.png'));
 close(f);
 
-save(fullfile(groupOutDir, 'group_rsa_tactileFor_vision.mat'), 'groupRsa', '-v7.3');
-fprintf('Saved group cross-modal RSA results and plot to %s\n', groupOutDir);
+fprintf('Saved group 8-condition cross-modal RSA results and plot to %s\n', groupOutDir);
