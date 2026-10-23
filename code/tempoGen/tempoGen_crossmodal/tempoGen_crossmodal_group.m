@@ -6,7 +6,7 @@
 % averages across the 6 subjects. Plots the group-average T x T heatmaps
 % for each combination.
 %
-% Requires outputs/derivatives/tempoGen/tempoGen_crossmodal/<sub>/<sub>_tempoGen_crossModal.mat
+% Requires outputs/derivatives/tempoGen/tempoGen_crossmodal/<sub>/<sub>_tempoGen_crossmodal.mat
 % for every subject (see tempoGen_crossmodal_subject.m).
 
 clear;
@@ -33,7 +33,7 @@ allResults = cell(1, nSub);
 for s = 1:nSub
     srcDir = tgDir;
     fprintf('%s from %s\n', subjects{s}, srcDir);
-    loaded = load(fullfile(srcDir, subjects{s}, [subjects{s} '_tempoGen_crossModal.mat']), 'results');
+    loaded = load(fullfile(srcDir, subjects{s}, [subjects{s} '_tempoGen_crossmodal.mat']), 'results');
     allResults{s} = loaded.results;
 end
 
@@ -99,17 +99,17 @@ sgtitle('Group - cross-modal temporal generalization', 'Interpreter', 'none');
 set(f, 'Position', [0 0 1100 1600]);
 % (plain group figure no longer saved: the stats figure below shows the same
 %  curves plus the significant time points)
-% saveas(f, fullfile(groupOutDir, 'group_tempoGen_crossModal.png'));
+% saveas(f, fullfile(groupOutDir, 'group_tempoGen_crossmodal.png'));
 close(f);
 
-save(fullfile(groupOutDir, 'group_tempoGen_crossModal.mat'), 'groupTempoGen', '-v7.3');
+save(fullfile(groupOutDir, 'group_tempoGen_crossmodal.mat'), 'groupTempoGen', '-v7.3');
 fprintf('Saved group cross-modal temporal generalization results and plot to %s\n', groupOutDir);
 
 %% ===================== statistics (merged from stats/stats_tempoGen_crossmodal_group.m (N=12 version), 2026-10-22) =====================
 %% Stats: cross-modal temporal generalization - sign-flip cluster-based permutation test
 %
 % Loads each subject's saved train-time x test-time generalization
-% matrices (outputs/derivatives/tempoGen/tempoGen_crossmodal/<sub>/<sub>_tempoGen_crossModal.mat,
+% matrices (outputs/derivatives/tempoGen/tempoGen_crossmodal/<sub>/<sub>_tempoGen_crossmodal.mat,
 % variable results.(target).mean.(variant).{acc,auc}, already averaged
 % over the 20 decoding iterations at subject-save time), and tests at
 % which (train, test) pixels decoding is above chance across subjects,
@@ -133,7 +133,7 @@ fprintf('Saved group cross-modal temporal generalization results and plot to %s\
 % This is pure statistics on already-computed per-subject matrices - no
 % re-decoding - so it runs in well under a minute.
 %
-% Requires outputs/derivatives/tempoGen/tempoGen_crossmodal/<sub>/<sub>_tempoGen_crossModal.mat
+% Requires outputs/derivatives/tempoGen/tempoGen_crossmodal/<sub>/<sub>_tempoGen_crossmodal.mat
 % for every subject (see tempoGen_crossmodal_subject.m).
 
 addpath(fileparts(mfilename('fullpath')));
@@ -166,7 +166,7 @@ metrics = {'acc', 'auc'};
 allResults = cell(1, nSub);
 for s = 1:nSub
     srcDir = tgDir;
-    loaded = load(fullfile(srcDir, subjects{s}, [subjects{s} '_tempoGen_crossModal.mat']), 'results');
+    loaded = load(fullfile(srcDir, subjects{s}, [subjects{s} '_tempoGen_crossmodal.mat']), 'results');
     allResults{s} = loaded.results;
 end
 
@@ -269,7 +269,7 @@ fprintf('Saved group cross-modal temporal generalization stats and plot to %s\n'
 % This is pure statistics on already-computed per-subject matrices - no
 % re-decoding - so it runs in well under a minute.
 %
-% Requires outputs/derivatives/tempoGen/tempoGen_crossmodal/<sub>/<sub>_tempoGen_crossModal.mat
+% Requires outputs/derivatives/tempoGen/tempoGen_crossmodal/<sub>/<sub>_tempoGen_crossmodal.mat
 % for every subject (see tempoGen_crossmodal_subject.m).
 
 addpath(fileparts(mfilename('fullpath')));
@@ -302,7 +302,7 @@ metrics = {'acc', 'auc'};
 allResults = cell(1, nSub);
 for s = 1:nSub
     srcDir = tgDir;
-    loaded = load(fullfile(srcDir, subjects{s}, [subjects{s} '_tempoGen_crossModal.mat']), 'results');
+    loaded = load(fullfile(srcDir, subjects{s}, [subjects{s} '_tempoGen_crossmodal.mat']), 'results');
     allResults{s} = loaded.results;
 end
 

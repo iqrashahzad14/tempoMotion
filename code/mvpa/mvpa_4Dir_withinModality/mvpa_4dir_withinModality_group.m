@@ -164,6 +164,32 @@ end
 
 sgtitle('Group - 4-direction decoding: sign-flip cluster stats (red = significant)', 'Interpreter', 'none');
 set(f, 'Position', [0 0 1000 900]);
+% (zoomed-axis stats figure not saved; the full-axis figure below is saved
+%  as group_stats_mvpa_4dir.png)
+close(f);
+
+% same stats figure on the full axis (y 0-1, x -0.5-1.5 s)
+f = figure('Visible', 'off');
+for b = 1:nBlocks
+    blkName = blockNames{b};
+    timeVec = groupMvpa.(blkName).time;
+    accStats = statsResults.(blkName).accStats;
+    aucStats = statsResults.(blkName).aucStats;
+
+    subplot(nBlocks, 2, (b-1)*2 + 1);
+    plot_mean_sem_sig(timeVec, groupMvpa.(blkName).accMean, groupMvpa.(blkName).accSEM, ...
+        chanceAcc, accStats.sigMask, [0 1]);
+    xlim([-0.5 1.5]); xlabel('Time (s)'); ylabel('Accuracy');
+    title(sprintf('%s - accuracy (N=%d)', strrep(blkName, '_', ' '), accStats.nSub));
+
+    subplot(nBlocks, 2, (b-1)*2 + 2);
+    plot_mean_sem_sig(timeVec, groupMvpa.(blkName).aucMean, groupMvpa.(blkName).aucSEM, ...
+        chanceAuc, aucStats.sigMask, [0 1]);
+    xlim([-0.5 1.5]); xlabel('Time (s)'); ylabel('AUC (macro)');
+    title(sprintf('%s - AUC (N=%d)', strrep(blkName, '_', ' '), aucStats.nSub));
+end
+sgtitle('Group - 4-direction decoding: sign-flip cluster stats (red = significant)', 'Interpreter', 'none');
+set(f, 'Position', [0 0 1000 900]);
 saveas(f, fullfile(groupOutDir, 'group_stats_mvpa_4dir.png'));
 close(f);
 

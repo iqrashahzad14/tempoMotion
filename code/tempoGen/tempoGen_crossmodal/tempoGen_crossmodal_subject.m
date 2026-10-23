@@ -101,7 +101,7 @@ for s = 1:numel(subjects)
     tSubject = tic;
 
     subOutDir = fullfile(outDir, subDir);
-    resultFile = fullfile(subOutDir, [subDir '_tempoGen_crossModal.mat']);
+    resultFile = fullfile(subOutDir, [subDir '_tempoGen_crossmodal.mat']);
 
     % never redo or overwrite a subject that is already decoded
     if exist(resultFile, 'file')
@@ -278,7 +278,7 @@ for s = 1:numel(subjects)
     end
     sgtitle([subDir ' - cross-modal temporal generalization'], 'Interpreter', 'none');
     set(f, 'Position', [0 0 1100 1600]);
-    saveas(f, fullfile(subOutDir, [subDir '_tempoGen_crossModal.png']));
+    saveas(f, fullfile(subOutDir, [subDir '_tempoGen_crossmodal.png']));
     close(f);
 
     subjectRuntime = toc(tSubject);
