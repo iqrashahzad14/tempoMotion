@@ -18,7 +18,7 @@
 %   tactile up:   finger_wrist = wrist->finger+finger->wrist, pinky_thumb = pinky->thumb+thumb->pinky
 %   tactile down: same grouping as tactile up
 %
-% Requires outputs/preprocess/<sub>/<sub>_preprocessed.mat (see
+% Requires outputs/derivatives/preprocess/<sub>/<sub>_preprocessed.mat (see
 % code/preprocess/preprocess_bandstop45.m).
 
 clear;
@@ -31,11 +31,13 @@ addpath(fileparts(mfilename('fullpath')));
 
 %% Paths
 projectDir = '/Users/iqrashahzad/Files/eeg/tempoMotion_ai2';
-preprocDir = fullfile(projectDir, 'outputs', 'preprocess');
-outDir     = fullfile(projectDir, 'outputs', 'erp');
+preprocDir = fullfile(projectDir, 'outputs', 'derivatives', 'preprocess');
+outDir     = fullfile(projectDir, 'outputs', 'derivatives', 'erp');
 
 %% Subjects
-subjects = {'sub-001', 'sub-002', 'sub-003', 'sub-004', 'sub-005', 'sub-006'};
+subjects = {'sub-001', 'sub-002', 'sub-003', 'sub-004', 'sub-005', 'sub-006', ...
+            'sub-007', 'sub-008', 'sub-009', 'sub-010', 'sub-011', 'sub-012', ...
+            'sub-014'};  % sub-014 added 2026-10-22 (sub-013, sub-015 still to be preprocessed)
 
 %% Condition definitions per block
 blocks = struct();
@@ -83,6 +85,14 @@ for s = 1:numel(subjects)
     fprintf('\n=== ERP: %s ===\n', subDir);
 
     subOutDir = fullfile(outDir, subDir);
+    erpFile   = fullfile(subOutDir, [subDir '_erp.mat']);
+
+    % never redo or overwrite a subject whose ERPs are already computed
+    if exist(erpFile, 'file')
+        fprintf('%s ERPs already computed (%s) - skipping.\n', subDir, erpFile);
+        continue
+    end
+
     if ~exist(subOutDir, 'dir')
         mkdir(subOutDir);
     end
@@ -90,6 +100,7 @@ for s = 1:numel(subjects)
     loaded = load(fullfile(preprocDir, subDir, [subDir '_preprocessed.mat']), 'data_clean');
     data_clean = loaded.data_clean;
     trig = data_clean.trialinfo(:, 1);
+    fprintf('%s trials per trigger: %s\n', subDir, strjoin(arrayfun(@(t) sprintf('%d:%d', t, sum(trig == t)), unique(trig)', 'UniformOutput', false), ' '));
 
     erp = struct();
 
@@ -124,7 +135,7 @@ for s = 1:numel(subjects)
             roiChans, chanOrder, sprintf('%s - %s - axis of motion', subDir, blk.name));
     end
 
-    save(fullfile(subOutDir, [subDir '_erp.mat']), 'erp', '-v7.3');
+    save(erpFile, 'erp', '-v7.3');
     fprintf('Saved ERP results and plots for %s\n', subDir);
 
 end

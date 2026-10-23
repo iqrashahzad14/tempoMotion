@@ -8,7 +8,7 @@
 % Workflow for the ICA component rejection step, across multiple subjects:
 % 1) Run this script with rejectComponents left empty ([]) for every
 %    subject. For each subject it computes ICA, saves a topography figure
-%    to outputs/preprocess/<sub>/<sub>_ica_components.png, caches the ICA
+%    to outputs/derivatives/preprocess/<sub>/<sub>_ica_components.png, caches the ICA
 %    result (so it does not need to be recomputed), then skips the rest
 %    of the pipeline for that subject.
 % 2) Inspect each *_ica_components.png, decide which component(s) is the
@@ -27,15 +27,40 @@ ft_defaults;
 %% Define dataset and paths
 projectDir = '/Users/iqrashahzad/Files/eeg/tempoMotion_ai2';
 rawDir     = fullfile(projectDir, 'inputs', 'raw');
-outDir     = fullfile(projectDir, 'outputs', 'preprocess');
+outDir     = fullfile(projectDir, 'outputs', 'derivatives', 'preprocess');
 
 %% Subjects to process
-subjects = {'sub-001','sub-002','sub-003','sub-004','sub-005','sub-006'};
+% sub-007..sub-015 were recorded with a 256-channel (A-H) amplifier
+% configuration (272 channels in the .bdf); only A-D (the 128 scalp
+% channels) are used below, so the pipeline is identical to sub-001..006.
+% sub-013 is left out for now: its recording has 2 short segments of stray
+% stimulus triggers before the first block (3 triggers at 145.8 s and
+% 184.1 s, the first a target trigger, which crashes the target-removal
+% step); the 9 real blocks are complete (checked with check_triggers.m,
+% outputs/logs/check_triggers_sub012-015.log). To be fixed before adding it.
+% sub-014 (added 2026-10-22): 9 clean blocks, 120 trials per condition;
+% one blink component (final policy), final file in the standard location
+% outputs/derivatives/preprocess/<sub>/.
+% sub-015 is left out for now (decided 2026-10-22): electrode B25 is broken
+% (SD ~100 uV in every block, peaks up to 1.9 mV) and C27 is flat; its ICA
+% (outputs/derivatives/preprocess/sub-015/, kept) is dominated by B25 and it hardly
+% blinks (outputs/logs/check_ica_channels_sub014-015.log). Needs bad-channel
+% exclusion + interpolation and a new ICA before it can be added.
+subjects = {'sub-001','sub-002','sub-003','sub-004','sub-005','sub-006', ...
+            'sub-007','sub-008','sub-009','sub-010','sub-011','sub-012', ...
+            'sub-014'};
 
 %% ICA component(s) to reject per subject
 % Determined by visual inspection of *_ica_components.png (frontal-polar,
 % bilaterally symmetric topography = eye-blink component).
-rejectComponents = containers.Map(subjects, {[1 2], [1], [1], [2], [1], [1]});
+% FINAL choices (2026-10-22): one blink component for sub-007..012 and
+% sub-014. (sub-007..010 were first preprocessed with two components,
+% [1 8], [3 5], [2 8], [2 5]; those files were replaced by the one-component
+% versions, see outputs/logs/finalize_icaComponents_2026-10-22.log.)
+% sub-013 and sub-015: to be fixed, see outputs/logs/preprocessToFix_sub13_15.md.
+rejectComponents = containers.Map(subjects, {[1 2], [1], [1], [2], [1], [1], ...
+                                             [1], [3], [2], [2], [3], [1], ...
+                                             [3]});
 
 %% Loop over subjects
 for s = 1:numel(subjects)
@@ -50,6 +75,13 @@ for s = 1:numel(subjects)
 
     icaCacheFile = fullfile(subOutDir, [subDir '_ica_intermediate.mat']);
     compFigFile  = fullfile(subOutDir, [subDir '_ica_components.png']);
+    finalFile    = fullfile(subOutDir, [subDir '_preprocessed.mat']);
+
+    % never redo or overwrite a subject that is already fully preprocessed
+    if exist(finalFile, 'file')
+        fprintf('%s already preprocessed (%s) - skipping.\n', subDir, finalFile);
+        continue
+    end
 
     if ~exist(icaCacheFile, 'file')
 
@@ -210,6 +242,15 @@ for s = 1:numel(subjects)
         epoch_info_resamp2{run}(:,1) = epoch_info_resamp{run}(:,1) - (epoch_info_resamp{run}(1,1)-1);
         epoch_info_resamp2{run}(:,2) = epoch_info_resamp{run}(:,2) - (epoch_info_resamp{run}(1,1));
 
+        % drop trials that end past the end of the run (can happen by one
+        % sample after resampling/rounding; FieldTrip would pad them with
+        % NaNs, which breaks the filtering in the artifact check)
+        tooLong = epoch_info_resamp2{run}(:,2) > size(data_ref.trial{run}, 2);
+        if any(tooLong)
+            fprintf('%s run %d: dropping %d trial(s) that extend past the end of the run\n', subDir, run, sum(tooLong));
+            epoch_info_resamp2{run}(tooLong,:) = [];
+        end
+
         cfg = [];
         cfg.trl = epoch_info_resamp2{run};
         cfg.trials = run;
@@ -241,7 +282,7 @@ for s = 1:numel(subjects)
     data_clean = ft_rejectartifact(cfg, data_base);
 
     %% Save final preprocessed EEG data
-    save(fullfile(subOutDir, [subDir '_preprocessed.mat']), 'data_clean', '-v7.3');
+    save(finalFile, 'data_clean', '-v7.3');
     fprintf('Saved final preprocessed data for %s\n', subDir);
 
 end

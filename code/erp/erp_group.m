@@ -4,7 +4,7 @@
 % (ft_timelockgrandaverage) for every block/analysis/condition, and
 % generates the same 4 summary plots as erp_subject.m at the group level.
 %
-% Requires outputs/erp/<sub>/<sub>_erp.mat for every subject (see
+% Requires outputs/derivatives/erp/<sub>/<sub>_erp.mat for every subject (see
 % erp_subject.m).
 
 clear;
@@ -17,11 +17,16 @@ addpath(fileparts(mfilename('fullpath')));
 
 %% Paths
 projectDir = '/Users/iqrashahzad/Files/eeg/tempoMotion_ai2';
-erpDir     = fullfile(projectDir, 'outputs', 'erp');
-groupOutDir = fullfile(erpDir, 'group');
+erpDir     = fullfile(projectDir, 'outputs', 'derivatives', 'erp');
 
 %% Subjects
-subjects = {'sub-001', 'sub-002', 'sub-003', 'sub-004', 'sub-005', 'sub-006'};
+subjects = {'sub-001', 'sub-002', 'sub-003', 'sub-004', 'sub-005', 'sub-006', ...
+            'sub-007', 'sub-008', 'sub-009', 'sub-010', 'sub-011', 'sub-012', ...
+            'sub-014'};  % sub-014 added 2026-10-22 (sub-013, sub-015 still to be preprocessed)
+
+% each sample size gets its own folder (outputs/derivatives/erp/group_N<N>); the
+% earlier N=6 results stay in outputs/derivatives/erp/group/
+groupOutDir = fullfile(erpDir, sprintf('group_N%d', numel(subjects)));
 
 %% Channel ROIs (must match erp_subject.m)
 roiChans.occipital = {'A11', 'A12', 'A13', 'A14', 'A15', 'A22', 'A23', 'A24', 'A25', 'A26', 'A27', 'A28', 'B8', 'B9'};
